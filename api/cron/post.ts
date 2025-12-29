@@ -8,6 +8,15 @@ import { ScheduledPost } from '../../types';
  */
 export default async function handler(req: any, res: any) {
   const spreadsheetId = process.env.SPREADSHEET_ID;
+  const cronSecret = process.env.CRON_SECRET;
+
+  // Security Check
+  const authHeader = req.headers.authorization;
+  const queryKey = req.query.key;
+
+  if (cronSecret && (authHeader !== `Bearer ${cronSecret}` && queryKey !== cronSecret)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
   if (!spreadsheetId) {
     return res.status(500).json({ error: "Missing SPREADSHEET_ID environment variable" });
