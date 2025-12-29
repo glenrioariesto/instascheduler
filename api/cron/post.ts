@@ -42,7 +42,7 @@ const fetchServerSettings = async (spreadsheetId: string, settingsTabName: strin
 
   let profiles: any[] = [];
   try {
-    const profilesResponse = await sheets.spreadsheets.values.get({ spreadsheetId, range: `Profiles!A2:F20` });
+    const profilesResponse = await sheets.spreadsheets.values.get({ spreadsheetId, range: `Profiles!A2:H20` });
     const profileRows = profilesResponse.data.values || [];
     profiles = profileRows.map((row, index) => ({
       id: row[0] || `profile_${index}`,
@@ -50,15 +50,17 @@ const fetchServerSettings = async (spreadsheetId: string, settingsTabName: strin
       accountId: row[2] || '',
       accessToken: row[3] || '',
       sheetTabName: row[4] || 'Schedules',
-      logsTabName: row[5] || `Logs - ${row[1] || 'Default'}`
+      logsTabName: row[5] || `Logs - ${row[1] || 'Default'}`,
+      imageKitPublicKey: row[6] || '',
+      imageKitUrlEndpoint: row[7] || ''
     }));
   } catch (e) {
     console.warn("Profiles tab not found, using legacy settings if available.");
     if (globalSettings['INSTAGRAM_ACCOUNT_ID']) {
-      profiles = [{ id: 'legacy', name: 'Default Account', accountId: globalSettings['INSTAGRAM_ACCOUNT_ID'], accessToken: globalSettings['INSTAGRAM_ACCESS_TOKEN'], sheetTabName: globalSettings['SHEET_TAB_NAME'] || 'Schedules', logsTabName: 'Logs' }];
+      profiles = [{ id: 'legacy', name: 'Default Account', accountId: globalSettings['INSTAGRAM_ACCOUNT_ID'], accessToken: globalSettings['INSTAGRAM_ACCESS_TOKEN'], sheetTabName: globalSettings['SHEET_TAB_NAME'] || 'Schedules', logsTabName: 'Logs', imageKitPublicKey: '', imageKitUrlEndpoint: '' }];
     }
   }
-  return { profiles, imageKitPublicKey: globalSettings['IMAGEKIT_PUBLIC_KEY'], imageKitPrivateKey: globalSettings['IMAGEKIT_PRIVATE_KEY'], imageKitUrlEndpoint: globalSettings['IMAGEKIT_URL_ENDPOINT'] };
+  return { profiles };
 };
 // ============== END INLINED SHEET SERVICE ==============
 

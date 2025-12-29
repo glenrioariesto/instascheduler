@@ -129,7 +129,7 @@ const initializeServerSpreadsheet = async (spreadsheetId: string, settings: any)
   const headerUpdates: any[] = [
     { range: `${settingsTabName}!A1:B1`, values: [['Key', 'Value']] },
     { range: `${logsTabName}!A1:D1`, values: [['Timestamp', 'Level', 'Message', 'Details']] },
-    { range: `${profilesTabName}!A1:F1`, values: [['Profile ID', 'Name', 'Instagram Account ID', 'Access Token', 'Tab Name', 'Logs Tab Name']] }
+    { range: `${profilesTabName}!A1:H1`, values: [['Profile ID', 'Name', 'Instagram Account ID', 'Access Token', 'Tab Name', 'Logs Tab Name', 'ImageKit Public Key', 'ImageKit URL Endpoint']] }
   ];
   if (settings.profiles && Array.isArray(settings.profiles)) {
     settings.profiles.forEach((p: any) => {
@@ -151,13 +151,10 @@ const saveServerRemoteSettings = async (spreadsheetId: string, settings: any) =>
 
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${tabName}!A2:B5`,
+    range: `${tabName}!A2:B2`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [
-        ['IMAGEKIT_PUBLIC_KEY', settings.imageKitPublicKey || ''],
-        ['IMAGEKIT_PRIVATE_KEY', settings.imageKitPrivateKey || ''],
-        ['IMAGEKIT_URL_ENDPOINT', settings.imageKitUrlEndpoint || ''],
         ['LAST_SYNC', new Date().toISOString()]
       ]
     }
@@ -169,12 +166,12 @@ const saveServerRemoteSettings = async (spreadsheetId: string, settings: any) =>
 
     if (!existingTitles.includes('Profiles')) {
       await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests: [{ addSheet: { properties: { title: 'Profiles' } } }] } });
-      await sheets.spreadsheets.values.update({ spreadsheetId, range: `Profiles!A1:F1`, valueInputOption: 'USER_ENTERED', requestBody: { values: [['Profile ID', 'Name', 'Instagram Account ID', 'Access Token', 'Tab Name', 'Logs Tab Name']] } });
+      await sheets.spreadsheets.values.update({ spreadsheetId, range: `Profiles!A1:H1`, valueInputOption: 'USER_ENTERED', requestBody: { values: [['Profile ID', 'Name', 'Instagram Account ID', 'Access Token', 'Tab Name', 'Logs Tab Name', 'ImageKit Public Key', 'ImageKit URL Endpoint']] } });
     }
 
-    const profileValues = settings.profiles.map((p: any) => [p.id, p.name, p.accountId, p.accessToken, p.sheetTabName, p.logsTabName || `Logs - ${p.name}`]);
-    await sheets.spreadsheets.values.clear({ spreadsheetId, range: `Profiles!A2:F20` });
-    await sheets.spreadsheets.values.update({ spreadsheetId, range: `Profiles!A2:F${profileValues.length + 1}`, valueInputOption: 'USER_ENTERED', requestBody: { values: profileValues } });
+    const profileValues = settings.profiles.map((p: any) => [p.id, p.name, p.accountId, p.accessToken, p.sheetTabName, p.logsTabName || `Logs - ${p.name}`, p.imageKitPublicKey || '', p.imageKitUrlEndpoint || '']);
+    await sheets.spreadsheets.values.clear({ spreadsheetId, range: `Profiles!A2:H20` });
+    await sheets.spreadsheets.values.update({ spreadsheetId, range: `Profiles!A2:H${profileValues.length + 1}`, valueInputOption: 'USER_ENTERED', requestBody: { values: profileValues } });
 
     const requests: any[] = [];
     const headerUpdates: any[] = [];

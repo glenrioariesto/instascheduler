@@ -18,9 +18,12 @@ const App: React.FC = () => {
         const remoteConfig = await fetchRemoteSettings(settings);
         if (remoteConfig) {
           // Check if anything actually changed to avoid unnecessary updates/logs
-          if (settings.accountId === remoteConfig.accountId &&
-            settings.accessToken === remoteConfig.accessToken &&
-            settings.sheetTabName === remoteConfig.sheetTabName &&
+          const activeProfile = settings.profiles?.find(p => p.id === settings.activeProfileId);
+          const remoteProfile = remoteConfig.profiles?.find((p: any) => p.id === settings.activeProfileId);
+
+          if (activeProfile?.accountId === remoteProfile?.accountId &&
+            activeProfile?.accessToken === remoteProfile?.accessToken &&
+            activeProfile?.sheetTabName === remoteProfile?.sheetTabName &&
             settings.imageKitPublicKey === remoteConfig.imageKitPublicKey &&
             settings.imageKitPrivateKey === remoteConfig.imageKitPrivateKey &&
             settings.imageKitUrlEndpoint === remoteConfig.imageKitUrlEndpoint) {

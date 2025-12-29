@@ -37,7 +37,9 @@ export const Settings: React.FC = () => {
     accountId: '',
     accessToken: '',
     sheetTabName: 'Schedules',
-    logsTabName: 'Logs'
+    logsTabName: 'Logs',
+    imageKitPublicKey: '',
+    imageKitUrlEndpoint: ''
   });
 
   useEffect(() => {
@@ -89,7 +91,7 @@ export const Settings: React.FC = () => {
     }
 
     // Reset form
-    setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules', logsTabName: 'Logs' });
+    setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules', logsTabName: 'Logs', imageKitPublicKey: '', imageKitUrlEndpoint: '' });
     setEditingProfileId(null);
   };
 
@@ -99,7 +101,10 @@ export const Settings: React.FC = () => {
       name: profile.name,
       accountId: profile.accountId,
       accessToken: profile.accessToken,
-      sheetTabName: profile.sheetTabName
+      sheetTabName: profile.sheetTabName,
+      logsTabName: profile.logsTabName || '',
+      imageKitPublicKey: profile.imageKitPublicKey || '',
+      imageKitUrlEndpoint: profile.imageKitUrlEndpoint || ''
     });
   };
 
@@ -269,6 +274,31 @@ export const Settings: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* ImageKit Settings */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">ImageKit Public Key</label>
+                    <input
+                      type="text"
+                      value={profileForm.imageKitPublicKey || ''}
+                      onChange={(e) => setProfileForm({ ...profileForm, imageKitPublicKey: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="public_..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">ImageKit URL Endpoint</label>
+                    <input
+                      type="text"
+                      value={profileForm.imageKitUrlEndpoint || ''}
+                      onChange={(e) => setProfileForm({ ...profileForm, imageKitUrlEndpoint: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="https://ik.imagekit.io/..."
+                    />
+                  </div>
+                </div>
+
                 <div className="flex gap-2 pt-2">
                   <button
                     type="button"
@@ -282,7 +312,7 @@ export const Settings: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setEditingProfileId(null);
-                        setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules' });
+                        setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules', logsTabName: 'Logs', imageKitPublicKey: '', imageKitUrlEndpoint: '' });
                       }}
                       className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-300 transition-colors"
                     >

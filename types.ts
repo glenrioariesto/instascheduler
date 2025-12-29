@@ -20,6 +20,8 @@ export interface InstagramProfile {
   accessToken: string;
   sheetTabName: string;
   logsTabName?: string;
+  imageKitPublicKey?: string;
+  imageKitUrlEndpoint?: string;
 }
 
 export interface ScheduledPost {
