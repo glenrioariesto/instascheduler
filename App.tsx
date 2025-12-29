@@ -25,10 +25,19 @@ const App: React.FC = () => {
           }
 
           addLog({ level: 'success', message: 'Loaded settings from Spreadsheet' });
-          updateSettings({
+
+          const updates: any = {
             ...remoteConfig,
             isRemoteConfigured: true
-          });
+          };
+
+          // If no active profile is set, or current one doesn't exist in remote list, pick the first one
+          const currentIdExists = remoteConfig.profiles?.some((p: any) => p.id === settings.activeProfileId);
+          if ((!settings.activeProfileId || !currentIdExists) && remoteConfig.profiles?.length > 0) {
+            updates.activeProfileId = remoteConfig.profiles[0].id;
+          }
+
+          updateSettings(updates);
         }
       }
     };

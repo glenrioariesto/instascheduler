@@ -49,6 +49,10 @@ export const PostForm: React.FC = () => {
   };
 
   const activeProfile = settings.profiles?.find(p => p.id === settings.activeProfileId);
+  console.log("Current Active Profile:", activeProfile);
+  console.log("Active Profile ID:", settings.activeProfileId);
+  console.log("All Profiles:", settings.profiles);
+  console.log("Spreadsheet ID:", settings.spreadsheetId);
 
   const handleFileUpload = async (id: string, file: File) => {
     if (!activeProfile) {

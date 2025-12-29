@@ -37,17 +37,19 @@ export const fetchRemoteSettings = async (settings: AppSettings): Promise<any | 
     try {
       const profilesData = await callSheetsProxy(spreadsheetId, 'fetch', { tabName: 'Profiles' });
       if (profilesData.values) {
-        remoteSettings.profiles = profilesData.values.map((row: string[]) => ({
-          id: row[0],
-          name: row[1],
-          accountId: row[2],
-          accessToken: row[3],
-          sheetTabName: row[4] || 'Schedules',
-          logsTabName: row[5] || `Logs - ${row[1]}`,
-          imageKitPublicKey: row[6] || '',
-          imageKitUrlEndpoint: row[7] || '',
-          imageKitPrivateKey: row[8] || ''
-        }));
+        remoteSettings.profiles = profilesData.values
+          .filter((row: string[]) => row[0] && row[0].trim() !== '')
+          .map((row: string[]) => ({
+            id: (row[0] || '').trim(),
+            name: (row[1] || '').trim(),
+            accountId: (row[2] || '').trim(),
+            accessToken: (row[3] || '').trim(),
+            sheetTabName: (row[4] || 'Schedules').trim(),
+            logsTabName: (row[5] || `Logs - ${row[1]}`).trim(),
+            imageKitPublicKey: (row[6] || '').trim(),
+            imageKitUrlEndpoint: (row[7] || '').trim(),
+            imageKitPrivateKey: (row[8] || '').trim()
+          }));
       }
     } catch (e) {
       console.warn("Profiles tab not found, skipping profiles fetch.");

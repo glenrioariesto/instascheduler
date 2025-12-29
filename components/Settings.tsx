@@ -196,7 +196,12 @@ export const Settings: React.FC = () => {
     try {
       const remote = await fetchRemoteSettings(settings);
       if (remote) {
-        updateSettings({ ...remote, isRemoteConfigured: true });
+        const updates: any = { ...remote, isRemoteConfigured: true };
+        const currentIdExists = remote.profiles?.some((p: any) => p.id === settings.activeProfileId);
+        if ((!settings.activeProfileId || !currentIdExists) && remote.profiles?.length > 0) {
+          updates.activeProfileId = remote.profiles[0].id;
+        }
+        updateSettings(updates);
         setMessage('Settings reloaded from Sheet!');
       } else {
         setMessage('Failed to fetch from Sheet.');
@@ -382,6 +387,9 @@ export const Settings: React.FC = () => {
                             <p className="font-bold text-slate-800">{profile.name}</p>
                             <p className="text-xs text-slate-500 flex items-center gap-1">
                               <FileSpreadsheet size={12} /> {profile.sheetTabName}
+                            </p>
+                            <p className={`text-[10px] font-bold flex items-center gap-1 ${(!profile.imageKitPublicKey || !profile.imageKitUrlEndpoint || !profile.imageKitPrivateKey) ? 'text-red-500' : 'text-green-600'}`}>
+                              <ImageIcon size={10} /> {(!profile.imageKitPublicKey || !profile.imageKitUrlEndpoint || !profile.imageKitPrivateKey) ? 'ImageKit Missing' : 'ImageKit OK'}
                             </p>
                           </div>
                         </div>
