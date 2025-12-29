@@ -12,12 +12,25 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-white border-r border-slate-200 flex-shrink-0 md:h-screen sticky top-0 z-10">
         <div className="p-6 flex items-center gap-3 border-b border-slate-100">
-          <div className="bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 text-white p-2 rounded-lg">
-            <Instagram size={24} />
-          </div>
-          <div>
-            <h1 className="font-bold text-slate-800 tracking-tight">InstaScheduler</h1>
-            <p className="text-xs text-slate-500">Pro Edition</p>
+          {/* Mobile: Logo + Text Combined */}
+          <img
+            src="/assets/logo-text.png"
+            alt="InstaScheduler"
+            className="h-8 md:hidden object-contain"
+          />
+
+          {/* Desktop: Logo Icon + Text Image */}
+          <div className="hidden md:flex items-center gap-3">
+            <img
+              src="/assets/Logo-InstaScheduler.png"
+              alt="Logo"
+              className="w-10 h-10 object-contain"
+            />
+            <img
+              src="/assets/InstaScheduler-Text.png"
+              alt="InstaScheduler"
+              className="h-10 w-48 object-cover"
+            />
           </div>
         </div>
 
