@@ -13,6 +13,15 @@ export interface PostData {
   lastUpdated: number;
 }
 
+export interface InstagramProfile {
+  id: string;
+  name: string;
+  accountId: string;
+  accessToken: string;
+  sheetTabName: string;
+  logsTabName?: string;
+}
+
 export interface ScheduledPost {
   id: string;
   scheduledTime: string; // ISO String or parsable date string
@@ -23,19 +32,18 @@ export interface ScheduledPost {
 }
 
 export interface AppSettings {
-  accountId: string;
-  accessToken: string;
   spreadsheetId: string;
-  sheetTabName?: string; // For the Schedule data
+  profiles: InstagramProfile[];
+  activeProfileId?: string;
+
   settingsTabName?: string; // For the Configuration data (defaults to 'Settings')
   logsTabName?: string; // For Activity Logs (defaults to 'Logs')
-  googleClientId?: string;
-  googleAccessToken?: string;
-  googleTokenExpiresAt?: number;
-  // ImageKit Settings
+
+  // ImageKit Settings (Global)
   imageKitPublicKey?: string;
   imageKitPrivateKey?: string;
   imageKitUrlEndpoint?: string;
+
   // Remote settings (fetched from Sheet)
   isRemoteConfigured?: boolean;
 }
@@ -56,6 +64,7 @@ export interface LogEntry {
   level: 'info' | 'success' | 'error';
   message: string;
   details?: string;
+  profileId?: string;
 }
 
 export enum InstagramApiStatus {
@@ -65,4 +74,14 @@ export enum InstagramApiStatus {
   PUBLISHING = 'PUBLISHING',
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR'
+}
+
+export interface ModalState {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'error' | 'confirm';
+  onConfirm?: () => void;
+  confirmText?: string;
+  cancelText?: string;
 }
