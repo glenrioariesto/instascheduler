@@ -7,7 +7,7 @@ import { compressImage } from '../utils/imageUtils';
 import { useAppStore } from '../store/useAppStore';
 
 export const PostForm: React.FC = () => {
-  const { settings, addLog } = useAppStore();
+  const { settings, addLog, showAlert } = useAppStore();
   const [date, setDate] = useState('');
   const [theme, setTheme] = useState('');
   const [title, setTitle] = useState('');
@@ -29,7 +29,7 @@ export const PostForm: React.FC = () => {
 
   const handleRemoveMedia = (id: string) => {
     if (mediaItems.length <= 1) {
-      alert("Must have at least 1 media item.");
+      showAlert("Minimum Media", "Must have at least 1 media item.", "info");
       return;
     }
     setMediaItems(mediaItems.filter(item => item.id !== id));
@@ -50,7 +50,7 @@ export const PostForm: React.FC = () => {
 
   const handleFileUpload = async (id: string, file: File) => {
     if (!settings.imageKitPublicKey || !settings.imageKitPrivateKey || !settings.imageKitUrlEndpoint) {
-      alert("Please configure ImageKit settings in the Settings tab first.");
+      showAlert("Configuration Missing", "Please configure ImageKit settings in the Settings tab first.", "error");
       return;
     }
 
@@ -90,26 +90,28 @@ export const PostForm: React.FC = () => {
       setStatusMessage('Upload complete!');
       setTimeout(() => setStatusMessage(''), 2000);
     } catch (error: any) {
-      alert(`Upload failed: ${error.message}`);
+      showAlert("Upload Failed", `Upload failed: ${error.message}`, "error");
       setStatusMessage('');
     } finally {
       setIsSaving(false);
     }
   };
 
+  const activeProfile = settings.profiles?.find(p => p.id === settings.activeProfileId);
+
   const handleSave = async () => {
-    if (!settings.googleAccessToken) {
-      alert("Please connect your Google Account in Settings first.");
+    if (!activeProfile) {
+      showAlert("No Active Profile", "Please select or create an Instagram profile in Settings first.", "error");
       return;
     }
 
     if (!date) {
-      alert("Please select a date.");
+      showAlert("Missing Date", "Please select a date.", "error");
       return;
     }
 
     if (mediaItems.some(m => !m.url)) {
-      alert("Please fill in all media URLs.");
+      showAlert("Missing Media", "Please fill in all media URLs.", "error");
       return;
     }
 
@@ -128,11 +130,11 @@ export const PostForm: React.FC = () => {
         mediaItems
       };
 
-      await addToSchedule(settings, postData);
+      await addToSchedule(settings, postData, activeProfile.sheetTabName);
 
       setStatusMessage('Saved successfully!');
       setStatusType('success');
-      addLog({ level: 'success', message: 'Added new post to schedule', details: `Date: ${date}, Title: ${title}` });
+      addLog({ level: 'success', message: `Added new post to ${activeProfile.name} schedule`, details: `Date: ${date}, Title: ${title}`, profileId: activeProfile.id });
 
       // Reset form
       setTimeout(() => {
@@ -152,7 +154,7 @@ export const PostForm: React.FC = () => {
       console.error(error);
       setStatusMessage(`Failed to save: ${error.message}`);
       setStatusType('error');
-      addLog({ level: 'error', message: 'Failed to save to schedule', details: error.message });
+      addLog({ level: 'error', message: 'Failed to save to schedule', details: error.message, profileId: activeProfile.id });
       setIsSaving(false);
     }
   };
@@ -363,7 +365,7 @@ export const PostForm: React.FC = () => {
             Sheet Preview
           </h3>
           <p className="text-sm text-indigo-700 mb-4">
-            This data will be appended to your <b>Schedules</b> tab.
+            This data will be appended to your <b>{activeProfile?.sheetTabName || 'Schedules'}</b> tab.
           </p>
 
           <div className="space-y-3 text-sm">

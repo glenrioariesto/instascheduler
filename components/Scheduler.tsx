@@ -12,7 +12,7 @@ import { TableView } from './scheduler/TableView';
 import { CalendarView } from './scheduler/CalendarView';
 
 export const Scheduler: React.FC = () => {
-  const { settings, addLog } = useAppStore();
+  const { settings, addLog, showAlert, showConfirm } = useAppStore();
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [lastCheck, setLastCheck] = useState<number | null>(null);
@@ -36,17 +36,22 @@ export const Scheduler: React.FC = () => {
     }
   };
 
-  const loadSchedule = async (manual = false) => {
-    const isGoogleConnected = settings.googleAccessToken && settings.googleTokenExpiresAt && Date.now() < settings.googleTokenExpiresAt;
+  const activeProfile = settings.profiles?.find(p => p.id === settings.activeProfileId);
 
-    if (!settings.spreadsheetId || !isGoogleConnected) {
-      if (manual) alert("Please configure Google Sheets settings first (Spreadsheet ID + Auth).");
+  const loadSchedule = async (manual = false) => {
+    if (!settings.spreadsheetId) {
+      if (manual) showAlert("Database Not Connected", "Please configure Google Sheets Spreadsheet ID first.", "error");
+      return;
+    }
+
+    if (!activeProfile) {
+      if (manual) showAlert("No Active Profile", "Please select or create an Instagram profile in Settings.", "error");
       return;
     }
 
     setLoading(true);
     try {
-      const rawPosts = await fetchSheetData(settings);
+      const rawPosts = await fetchSheetData(settings, activeProfile.sheetTabName);
       const now = new Date();
 
       const processedPosts = rawPosts.map(post => {
@@ -54,7 +59,6 @@ export const Scheduler: React.FC = () => {
         let status = post.status; // Use status from sheet
 
         // If sheet says pending/failed, check if it's actually 'due' now
-        // This allows manual reset in the spreadsheet to work
         if (status !== 'published') {
           if (scheduledTime <= now) {
             status = 'due';
@@ -68,13 +72,13 @@ export const Scheduler: React.FC = () => {
       setLastCheck(Date.now());
 
       if (manual) {
-        addLog({ level: 'info', message: `Fetched ${processedPosts.length} rows from Google Sheet` });
+        addLog({ level: 'info', message: `Fetched ${processedPosts.length} rows for ${activeProfile.name}` });
       }
 
       return processedPosts;
     } catch (error: any) {
       console.error(error);
-      addLog({ level: 'error', message: 'Failed to fetch schedule', details: error.message });
+      addLog({ level: 'error', message: `Failed to fetch schedule for ${activeProfile?.name}`, details: error.message });
       return [];
     } finally {
       setLoading(false);
@@ -82,39 +86,39 @@ export const Scheduler: React.FC = () => {
   };
 
   const processDuePosts = async (currentPosts: ScheduledPost[]) => {
-    if (processingId) return;
+    if (processingId || !activeProfile) return;
 
     const duePost = currentPosts.find(p => p.status === 'due');
 
     if (duePost) {
       setProcessingId(duePost.id);
-      addLog({ level: 'info', message: `Starting auto-publish for ID: ${duePost.id}` });
+      addLog({ level: 'info', message: `[${activeProfile.name}] Starting auto-publish for ID: ${duePost.id}`, profileId: activeProfile.id });
 
       try {
         await publishCarouselPost(
-          settings.accountId,
-          settings.accessToken,
+          activeProfile.accountId,
+          activeProfile.accessToken,
           duePost.caption,
           duePost.mediaItems,
-          (status) => console.log(`[${duePost.id}] ${status}`)
+          (status) => console.log(`[${activeProfile.name}][${duePost.id}] ${status}`)
         );
 
         markAsPublished(duePost.id);
-        addLog({ level: 'success', message: `Auto-published ID: ${duePost.id}` });
+        addLog({ level: 'success', message: `[${activeProfile.name}] Auto-published ID: ${duePost.id}`, profileId: activeProfile.id });
 
         if (duePost.sheetRowIndex) {
           try {
-            await updatePostStatus(settings, duePost.sheetRowIndex, 'published');
-            addLog({ level: 'info', message: `Synced 'published' status to Sheet for ID: ${duePost.id}` });
+            await updatePostStatus(settings, duePost.sheetRowIndex, 'published', activeProfile.sheetTabName);
+            addLog({ level: 'info', message: `Synced 'published' status to Sheet for ${activeProfile.name}`, profileId: activeProfile.id });
           } catch (syncError: any) {
-            addLog({ level: 'error', message: `Failed to sync status to Sheet for ID: ${duePost.id}`, details: syncError.message });
+            addLog({ level: 'error', message: `Failed to sync status to Sheet for ${activeProfile.name}`, details: syncError.message, profileId: activeProfile.id });
           }
         }
 
         setPosts(prev => prev.map(p => p.id === duePost.id ? { ...p, status: 'published' } : p));
 
       } catch (error: any) {
-        addLog({ level: 'error', message: `Failed to auto-publish ID: ${duePost.id}`, details: error.message });
+        addLog({ level: 'error', message: `[${activeProfile.name}] Failed to auto-publish ID: ${duePost.id}`, details: error.message, profileId: activeProfile.id });
       } finally {
         setProcessingId(null);
       }
@@ -122,38 +126,37 @@ export const Scheduler: React.FC = () => {
   };
 
   const handlePostNow = async (id: string) => {
-    if (processingId) return;
+    if (processingId || !activeProfile) return;
     const post = posts.find(p => p.id === id);
     if (!post) return;
 
     setProcessingId(id);
-    addLog({ level: 'info', message: `Manual publish started for ID: ${id}` });
+    addLog({ level: 'info', message: `[${activeProfile.name}] Manual publish started`, profileId: activeProfile.id });
 
     try {
       await publishCarouselPost(
-        settings.accountId,
-        settings.accessToken,
+        activeProfile.accountId,
+        activeProfile.accessToken,
         post.caption,
         post.mediaItems,
-        (status) => console.log(`[${id}] ${status}`)
+        (status) => console.log(`[${activeProfile.name}][${id}] ${status}`)
       );
 
       markAsPublished(id);
-      addLog({ level: 'success', message: `Published successfully: ${id}` });
+      addLog({ level: 'success', message: `[${activeProfile.name}] Published successfully`, profileId: activeProfile.id });
 
       if (post.sheetRowIndex) {
         try {
-          await updatePostStatus(settings, post.sheetRowIndex, 'published');
-          addLog({ level: 'info', message: `Synced 'published' status to Sheet for ID: ${id}` });
+          await updatePostStatus(settings, post.sheetRowIndex, 'published', activeProfile.sheetTabName);
         } catch (syncError: any) {
-          addLog({ level: 'error', message: `Failed to sync status to Sheet for ID: ${id}`, details: syncError.message });
+          addLog({ level: 'error', message: `Failed to sync status to Sheet`, details: syncError.message, profileId: activeProfile.id });
         }
       }
 
       setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'published' } : p));
 
     } catch (error: any) {
-      addLog({ level: 'error', message: `Failed to publish ID: ${id}`, details: error.message });
+      addLog({ level: 'error', message: `Failed to publish`, details: error.message, profileId: activeProfile.id });
       setPosts(prev => prev.map(p => p.id === id ? { ...p, status: 'failed' } : p));
     } finally {
       setProcessingId(null);
@@ -161,41 +164,39 @@ export const Scheduler: React.FC = () => {
   };
 
   const handleDeletePost = async (id: string) => {
+    if (!activeProfile) return;
     const post = posts.find(p => p.id === id);
     if (!post) return;
 
-    if (!window.confirm(`Are you sure you want to delete this post? This will also remove it from the Google Sheet.`)) {
-      return;
-    }
-
-    setProcessingId(id);
-    addLog({ level: 'info', message: `Deleting post ID: ${id}` });
-
-    try {
-      if (post.sheetRowIndex) {
-        await deletePostFromSheet(settings, post.sheetRowIndex);
-        addLog({ level: 'success', message: `Deleted post from Sheet: ${id}` });
-      }
-
-      // Update local state
-      setPosts(prev => prev.filter(p => p.id !== id));
-      addLog({ level: 'success', message: `Post removed from schedule: ${id}` });
-
-    } catch (error: any) {
-      addLog({ level: 'error', message: `Failed to delete post ID: ${id}`, details: error.message });
-    } finally {
-      setProcessingId(null);
-    }
+    showConfirm(
+      "Delete Post",
+      "Are you sure you want to delete this post? This will also remove it from the Google Sheet.",
+      async () => {
+        setProcessingId(id);
+        try {
+          if (post.sheetRowIndex) {
+            await deletePostFromSheet(settings, post.sheetRowIndex, activeProfile.sheetTabName);
+          }
+          setPosts(prev => prev.filter(p => p.id !== id));
+          addLog({ level: 'success', message: `Post removed from ${activeProfile.name} schedule` });
+        } catch (error: any) {
+          addLog({ level: 'error', message: `Failed to delete post`, details: error.message });
+        } finally {
+          setProcessingId(null);
+        }
+      },
+      "Delete",
+      "Cancel"
+    );
   };
 
-  // Auto-fetch on mount
   useEffect(() => {
     loadSchedule();
-  }, [settings.spreadsheetId, settings.googleAccessToken]);
+  }, [settings.spreadsheetId, settings.activeProfileId]);
 
   // The Automation Loop
   useEffect(() => {
-    if (isRunning) {
+    if (isRunning && activeProfile) {
       const runCycle = async () => {
         const currentPosts = await loadSchedule();
         if (currentPosts) {
@@ -212,7 +213,7 @@ export const Scheduler: React.FC = () => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isRunning, settings]);
+  }, [isRunning, settings.activeProfileId, settings.spreadsheetId]);
 
   return (
     <div className="space-y-6">
@@ -226,12 +227,12 @@ export const Scheduler: React.FC = () => {
         onRefresh={() => loadSchedule(true)}
       />
 
-      {(!settings.spreadsheetId || !settings.googleAccessToken) && (
+      {!settings.spreadsheetId && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex gap-3">
           <AlertCircle size={20} />
           <div>
             <p className="font-bold">Database not connected</p>
-            <p className="text-sm">Please go to Settings and add your Google Sheets details (Sheet ID + Client ID or API Key).</p>
+            <p className="text-sm">Please go to Settings and add your Google Sheets Spreadsheet ID.</p>
           </div>
         </div>
       )}

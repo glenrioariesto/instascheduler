@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Save, Eye, EyeOff, Key, UserCircle, Database, FileSpreadsheet, Lock, CheckCircle2, AlertCircle, PlayCircle, Search, Image as ImageIcon } from 'lucide-react';
-import { AppSettings } from '../types';
+import { AppSettings, InstagramProfile } from '../types';
 import { initializeSpreadsheet } from '../services/sheetService';
 import { getInstagramBusinessId } from '../services/instagramService';
 import { useAppStore } from '../store/useAppStore';
@@ -13,20 +13,39 @@ declare global {
 }
 
 export const Settings: React.FC = () => {
-  const { settings, setSettings, addLog, syncSettingsToSheet } = useAppStore();
+  const {
+    settings,
+    setSettings,
+    addLog,
+    syncSettingsToSheet,
+    showAlert,
+    addProfile,
+    updateProfile,
+    deleteProfile
+  } = useAppStore();
 
-  const [formData, setFormData] = useState<AppSettings>({
-    ...settings,
-    googleClientId: settings.googleClientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
-    spreadsheetId: settings.spreadsheetId || import.meta.env.VITE_GOOGLE_SHEET_ID || '',
-    imageKitPublicKey: settings.imageKitPublicKey || import.meta.env.VITE_IMAGEKIT_PUBLIC_KEY || '',
-    imageKitPrivateKey: settings.imageKitPrivateKey || import.meta.env.VITE_IMAGEKIT_PRIVATE_KEY || '',
-    imageKitUrlEndpoint: settings.imageKitUrlEndpoint || import.meta.env.VITE_IMAGEKIT_URL_ENDPOINT || '',
-  });
+  const [formData, setFormData] = useState<AppSettings>(settings);
   const [showToken, setShowToken] = useState(false);
   const [message, setMessage] = useState('');
+  const [serviceAccountEmail, setServiceAccountEmail] = useState<string>('Loading...');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const isGoogleConnected = formData.googleAccessToken && formData.googleTokenExpiresAt && Date.now() < formData.googleTokenExpiresAt;
+  // Profile Form State
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [profileForm, setProfileForm] = useState<Omit<InstagramProfile, 'id'>>({
+    name: '',
+    accountId: '',
+    accessToken: '',
+    sheetTabName: 'Schedules',
+    logsTabName: 'Logs'
+  });
+
+  useEffect(() => {
+    fetch('/api/sheets/info')
+      .then(res => res.json())
+      .then(data => setServiceAccountEmail(data.email || 'Not configured'))
+      .catch(() => setServiceAccountEmail('Error fetching email'));
+  }, []);
 
   useEffect(() => {
     setFormData(settings);
@@ -34,397 +53,395 @@ export const Settings: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     setSettings(formData);
     addLog({ level: 'info', message: 'Application settings updated' });
 
-    // Sync to sheet
-    await syncSettingsToSheet();
-
-    setMessage('Settings saved successfully!');
-    setTimeout(() => setMessage(''), 3000);
+    try {
+      // Sync to sheet
+      await syncSettingsToSheet();
+      setMessage('Settings saved successfully!');
+    } catch (error) {
+      console.error(error);
+      setMessage('Failed to save settings to sheet.');
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setMessage(''), 3000);
+    }
   };
 
-  const handleGoogleAuth = () => {
-    if (!formData.googleClientId) {
-      alert("Please enter a Google Client ID first.");
+  const handleAddOrUpdateProfile = () => {
+    if (!profileForm.name || !profileForm.accountId || !profileForm.accessToken) {
+      showAlert("Missing Fields", "Please fill in all profile fields.", "error");
       return;
     }
 
-    if (typeof window.google === 'undefined') {
-      alert("Google Identity Services script not loaded. Check internet connection.");
-      return;
+    if (editingProfileId) {
+      updateProfile(editingProfileId, profileForm);
+      addLog({ level: 'info', message: `Profile updated: ${profileForm.name}`, profileId: editingProfileId });
+    } else {
+      // We don't have the ID yet for new profiles as it's generated in the store
+      // But we can try to find it after adding, or just log generally.
+      // Actually, addProfile generates an ID. We should probably return it or handle it differently if we want to log with ID immediately.
+      // For now, let's just log the name. The store's addProfile doesn't return the ID.
+      addProfile(profileForm);
+      addLog({ level: 'info', message: `New profile added: ${profileForm.name}` });
     }
 
-    const client = window.google.accounts.oauth2.initTokenClient({
-      client_id: formData.googleClientId,
-      scope: 'https://www.googleapis.com/auth/spreadsheets',
-      callback: async (tokenResponse: any) => {
-        if (tokenResponse.access_token) {
-          const expiresIn = tokenResponse.expires_in; // seconds
-          const expiresAt = Date.now() + (expiresIn * 1000);
+    // Reset form
+    setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules', logsTabName: 'Logs' });
+    setEditingProfileId(null);
+  };
 
-          const newSettings = {
-            ...formData,
-            googleAccessToken: tokenResponse.access_token,
-            googleTokenExpiresAt: expiresAt
-          };
-
-          setFormData(newSettings);
-          setSettings(newSettings);
-
-          // Save immediately
-          await syncSettingsToSheet();
-
-          setMessage('Connected to Google successfully!');
-        }
-      },
+  const handleEditProfile = (profile: InstagramProfile) => {
+    setEditingProfileId(profile.id);
+    setProfileForm({
+      name: profile.name,
+      accountId: profile.accountId,
+      accessToken: profile.accessToken,
+      sheetTabName: profile.sheetTabName
     });
-
-    client.requestAccessToken();
   };
 
   const handleFindId = async () => {
-    if (!formData.accessToken) {
-      alert("Please enter your Access Token first.");
+    if (!profileForm.accessToken) {
+      showAlert("Missing Token", "Please enter the Access Token first.", "error");
       return;
     }
 
     try {
       setMessage('Searching for Business ID...');
-      const id = await getInstagramBusinessId(formData.accessToken);
-      setFormData({ ...formData, accountId: id });
-      setMessage('ID Found and applied!');
+      const id = await getInstagramBusinessId(profileForm.accessToken);
+      setProfileForm({ ...profileForm, accountId: id });
+      setMessage('ID Found!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
       console.error(error);
-      alert(`Failed to find ID: ${error.message}`);
+      showAlert("Search Failed", `Failed to find ID: ${error.message}`, "error");
+      setMessage('');
+    }
+  };
+
+  const handleTestConnection = async (profile?: InstagramProfile) => {
+    if (!formData.spreadsheetId) {
+      showAlert("Missing ID", "Please enter a Spreadsheet ID first.", "error");
+      return;
+    }
+
+    const testTab = profile ? profile.sheetTabName : (formData.settingsTabName || 'Settings');
+
+    try {
+      setMessage(`Testing connection to ${testTab}...`);
+      const response = await fetch('/api/sheets/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'fetch',
+          spreadsheetId: formData.spreadsheetId,
+          payload: { tabName: testTab }
+        })
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+
+      setMessage('Connection Successful!');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error: any) {
+      console.error(error);
+      showAlert("Connection Failed", `Failed to connect: ${error.message}\n\nMake sure you have shared the spreadsheet with: ${serviceAccountEmail}`, "error");
       setMessage('');
     }
   };
 
   const handleSetupSheet = async () => {
     if (!formData.spreadsheetId) {
-      alert("Please enter a Spreadsheet ID first.");
-      return;
-    }
-    if (!formData.googleAccessToken) {
-      alert("Please connect your Google Account first.");
+      showAlert("Missing ID", "Please enter a Spreadsheet ID first.", "error");
       return;
     }
 
     try {
       setMessage('Initializing Spreadsheet structure...');
-      await initializeSpreadsheet(formData.googleAccessToken, formData);
+      await initializeSpreadsheet('', formData);
       setMessage('Spreadsheet initialized successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error: any) {
       console.error(error);
-      alert(`Failed to setup sheet: ${error.message}`);
+      showAlert("Setup Failed", `Failed to setup sheet: ${error.message}`, "error");
       setMessage('');
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
           <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
             <SettingsIcon size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800">API Configuration</h2>
-            <p className="text-sm text-slate-500">Configure Meta & Google credentials</p>
+            <h2 className="text-xl font-bold text-slate-800">Multi-Account Configuration</h2>
+            <p className="text-sm text-slate-500">Manage multiple Instagram profiles and global settings</p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-          {/* Section: Meta / Instagram */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <UserCircle size={16} /> Instagram API
-            </h3>
+          {/* Left Column: Profiles Management */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <UserCircle size={16} /> Instagram Profiles
+              </h3>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Instagram Business Account ID
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.accountId}
-                onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                placeholder="e.g. 17841400000000000"
-              />
-              <button
-                type="button"
-                onClick={handleFindId}
-                className="mt-2 text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium"
-              >
-                <Search size={14} />
-                Find My ID (Auto-detect)
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Long-Lived Access Token
-              </label>
-              <div className="relative">
-                <input
-                  type={showToken ? "text" : "password"}
-                  required
-                  value={formData.accessToken}
-                  onChange={(e) => setFormData({ ...formData, accessToken: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                  placeholder="EAAG..."
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowToken(!showToken)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-indigo-600 transition-colors"
-                >
-                  {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100"></div>
-
-          {/* Section: ImageKit */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <ImageIcon size={16} /> ImageKit Storage
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Public Key
-                </label>
-                <input
-                  type="text"
-                  value={formData.imageKitPublicKey || ''}
-                  onChange={(e) => setFormData({ ...formData, imageKitPublicKey: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                  placeholder="public_..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  URL Endpoint
-                </label>
-                <input
-                  type="text"
-                  value={formData.imageKitUrlEndpoint || ''}
-                  onChange={(e) => setFormData({ ...formData, imageKitUrlEndpoint: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                  placeholder="https://ik.imagekit.io/your_id"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Private Key
-                </label>
-                <div className="relative">
-                  <input
-                    type={showToken ? "text" : "password"}
-                    value={formData.imageKitPrivateKey || ''}
-                    onChange={(e) => setFormData({ ...formData, imageKitPrivateKey: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                    placeholder="private_..."
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowToken(!showToken)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-indigo-600 transition-colors"
-                  >
-                    {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100"></div>
-
-          {/* Section: Google Sheets */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Database size={16} /> Google Sheets Database
-            </h3>
-
-            <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800 border border-blue-100">
-              Spreadsheet ID: <b>{formData.spreadsheetId || 'Not set'}</b>
-              <br />
-              Status: {isGoogleConnected
-                ? <span className="font-bold text-green-700">Connected (Private Access)</span>
-                : <span className="font-bold text-red-700">Disconnected</span>
-              }
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Spreadsheet ID
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FileSpreadsheet size={18} className="text-slate-400" />
+              {/* Profile Form */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                <p className="text-xs font-bold text-slate-500 uppercase">{editingProfileId ? 'Edit Profile' : 'Add New Profile'}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Profile Name</label>
+                    <input
+                      type="text"
+                      value={profileForm.name}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        // Auto-generate tab name: Schedules - [Profile Name]
+                        // Remove invalid chars for Sheets: * ? : [ ] \ /
+                        const sanitized = name.replace(/[*?:\[\]\\\/]/g, '').trim();
+                        setProfileForm({
+                          ...profileForm,
+                          name,
+                          sheetTabName: sanitized ? `Schedules - ${sanitized}` : 'Schedules',
+                          logsTabName: sanitized ? `Logs - ${sanitized}` : 'Logs'
+                        });
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="e.g. My Shop Account"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    value={formData.spreadsheetId}
-                    onChange={(e) => setFormData({ ...formData, spreadsheetId: e.target.value })}
-                    className="pl-10 w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                    placeholder="Spreadsheet ID..."
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSetupSheet}
-                  className="mt-2 text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium"
-                >
-                  <PlayCircle size={14} />
-                  Initialize Sheets & Headers
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Settings Tab Name (Optional)
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FileSpreadsheet size={18} className="text-slate-400" />
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Sheet Tab Name</label>
+                    <input
+                      type="text"
+                      value={profileForm.sheetTabName}
+                      onChange={(e) => setProfileForm({ ...profileForm, sheetTabName: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="e.g. Schedules_Account1"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    value={formData.settingsTabName || ''}
-                    onChange={(e) => setFormData({ ...formData, settingsTabName: e.target.value })}
-                    className="pl-10 w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                    placeholder="e.g. Settings, Config"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-slate-500">Defaults to 'Settings' if empty.</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Logs Tab Name (Optional)
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FileSpreadsheet size={18} className="text-slate-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={formData.logsTabName || ''}
-                    onChange={(e) => setFormData({ ...formData, logsTabName: e.target.value })}
-                    className="pl-10 w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                    placeholder="e.g. Logs, Activity"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-slate-500">Defaults to 'Logs' if empty.</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Sheet Tab Name (Optional)
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FileSpreadsheet size={18} className="text-slate-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={formData.sheetTabName || ''}
-                    onChange={(e) => setFormData({ ...formData, sheetTabName: e.target.value })}
-                    className="pl-10 w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                    placeholder="e.g. Schedules, Jadwal"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-slate-500">Defaults to 'Schedules' if empty.</p>
-              </div>
-
-              <div className="md:col-span-2 pt-2 pb-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Google Client ID (For Private Sheets)
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock size={18} className="text-slate-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={formData.googleClientId || ''}
-                    onChange={(e) => setFormData({ ...formData, googleClientId: e.target.value })}
-                    className="pl-10 w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                    placeholder="123456...apps.googleusercontent.com"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  Create OAuth 2.0 Client ID in Google Cloud Console. Add current URL to "Authorized Javascript Origins".
-                </p>
-              </div>
-
-              <div className="md:col-span-2">
-                {!isGoogleConnected ? (
-                  <button
-                    type="button"
-                    onClick={handleGoogleAuth}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors w-full justify-center"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                    </svg>
-                    Sign in with Google
-                  </button>
-                ) : (
-                  <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-green-800">
-                      <CheckCircle2 size={20} />
-                      <span className="font-medium">Account Connected</span>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Instagram Business ID</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={profileForm.accountId}
+                        onChange={(e) => setProfileForm({ ...profileForm, accountId: e.target.value })}
+                        className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="178414..."
+                      />
+                      <button
+                        type="button"
+                        onClick={handleFindId}
+                        className="px-3 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+                        title="Auto-detect ID"
+                      >
+                        <Search size={16} />
+                      </button>
                     </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Access Token</label>
+                    <div className="relative">
+                      <input
+                        type={showToken ? "text" : "password"}
+                        value={profileForm.accessToken}
+                        onChange={(e) => setProfileForm({ ...profileForm, accessToken: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="EAAG..."
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowToken(!showToken)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400"
+                      >
+                        {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleAddOrUpdateProfile}
+                    className="flex-1 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    {editingProfileId ? 'Update Profile' : 'Add Profile'}
+                  </button>
+                  {editingProfileId && (
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, googleAccessToken: '', googleTokenExpiresAt: 0 })}
-                      className="text-xs text-green-700 underline hover:text-green-900"
+                      onClick={() => {
+                        setEditingProfileId(null);
+                        setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules' });
+                      }}
+                      className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-300 transition-colors"
                     >
-                      Disconnect
+                      Cancel
                     </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Profiles List */}
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-slate-500 uppercase">Active Profiles ({formData.profiles.length})</p>
+                {formData.profiles.length === 0 ? (
+                  <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
+                    No profiles added yet.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {formData.profiles.map(profile => (
+                      <div key={profile.id} className="p-4 bg-white border border-slate-200 rounded-xl flex items-center justify-between hover:border-indigo-300 transition-colors group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold">
+                            {profile.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-800">{profile.name}</p>
+                            <p className="text-xs text-slate-500 flex items-center gap-1">
+                              <FileSpreadsheet size={12} /> {profile.sheetTabName}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleTestConnection(profile)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                            title="Test Connection"
+                          >
+                            <PlayCircle size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleEditProfile(profile)}
+                            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                            title="Edit"
+                          >
+                            <SettingsIcon size={18} />
+                          </button>
+                          <button
+                            onClick={() => deleteProfile(profile.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                            title="Delete"
+                          >
+                            <AlertCircle size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-
             </div>
-
           </div>
 
-          {message && (
-            <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500"></span>
-              {message}
-            </div>
-          )}
+          {/* Right Column: Global Settings */}
+          <div className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <Database size={16} /> Google Sheets
+                </h3>
 
-          <div className="pt-2">
-            <button
-              type="submit"
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-100 transition-all"
-            >
-              <Save size={18} />
-              Save Configuration
-            </button>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Spreadsheet ID</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.spreadsheetId}
+                    onChange={(e) => setFormData({ ...formData, spreadsheetId: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    placeholder="ID..."
+                  />
+                </div>
+
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 space-y-2">
+                  <p className="text-[10px] font-bold uppercase text-blue-600">Service Account Email:</p>
+                  <code className="text-[10px] bg-white/50 px-2 py-1 rounded block break-all">{serviceAccountEmail}</code>
+                  <div className="pt-2">
+                    <p className="text-[10px] text-blue-800 mb-2">
+                      1. Add Profiles above.<br />
+                      2. Click Initialize to setup tabs.<br />
+                      (Deletes 'Sheet1', creates Profile tabs)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleSetupSheet}
+                      className="w-full py-2 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <PlayCircle size={14} /> Initialize Database & Tabs
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100"></div>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <ImageIcon size={16} /> ImageKit (Global)
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Public Key</label>
+                    <input
+                      type="text"
+                      value={formData.imageKitPublicKey || ''}
+                      onChange={(e) => setFormData({ ...formData, imageKitPublicKey: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">URL Endpoint</label>
+                    <input
+                      type="text"
+                      value={formData.imageKitUrlEndpoint || ''}
+                      onChange={(e) => setFormData({ ...formData, imageKitUrlEndpoint: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={18} />
+                      Save All Settings
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
+
+        {message && (
+          <div className="mt-6 p-3 bg-green-50 text-green-700 text-sm rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+            <CheckCircle2 size={16} className="text-green-500" />
+            {message}
+          </div>
+        )}
       </div>
     </div>
   );
