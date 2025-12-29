@@ -5,7 +5,7 @@ import {
   appendServerRow,
   deleteServerRow,
   saveServerRemoteSettings
-} from '../../services/serverSheetService';
+} from '../_services/serverSheetService';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
