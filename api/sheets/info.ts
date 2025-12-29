@@ -1,4 +1,4 @@
-import { getServerSheetsClient } from '../_services/serverSheetService';
+import { getServerSheetsClient } from '../../lib/serverSheetService';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {

@@ -1,4 +1,4 @@
-import { fetchServerSheetData, updateServerPostStatus, fetchServerSettings } from '../_services/serverSheetService';
+import { fetchServerSheetData, updateServerPostStatus, fetchServerSettings } from '../../lib/serverSheetService';
 import { publishCarouselPost } from '../../services/instagramService';
 import { ScheduledPost } from '../../types';
 
