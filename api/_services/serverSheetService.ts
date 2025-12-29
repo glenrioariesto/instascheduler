@@ -111,7 +111,7 @@ export const initializeServerSpreadsheet = async (spreadsheetId: string, setting
   const existingSheets = ss.data.sheets || [];
   const existingTitles = existingSheets.map(s => s.properties?.title);
 
-  const requests = [];
+  const requests: any[] = [];
 
   // Create Core Tabs
   if (!existingTitles.includes(settingsTabName)) requests.push({ addSheet: { properties: { title: settingsTabName } } });
