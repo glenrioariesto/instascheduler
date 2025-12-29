@@ -22,6 +22,7 @@ export interface InstagramProfile {
   logsTabName?: string;
   imageKitPublicKey?: string;
   imageKitUrlEndpoint?: string;
+  imageKitPrivateKey?: string;
 }
 
 export interface ScheduledPost {

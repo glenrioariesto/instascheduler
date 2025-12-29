@@ -66,7 +66,7 @@ export const fetchServerSettings = async (spreadsheetId: string, settingsTabName
   try {
     const profilesResponse = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `Profiles!A2:H20`, // Support up to 19 profiles with ImageKit per profile
+      range: `Profiles!A2:I20`, // Support up to 19 profiles with ImageKit per profile
     });
     const profileRows = profilesResponse.data.values || [];
     profiles = profileRows.map((row, index) => ({
@@ -77,7 +77,8 @@ export const fetchServerSettings = async (spreadsheetId: string, settingsTabName
       sheetTabName: row[4] || 'Schedules',
       logsTabName: row[5] || `Logs - ${row[1] || 'Default'}`,
       imageKitPublicKey: row[6] || '',
-      imageKitUrlEndpoint: row[7] || ''
+      imageKitUrlEndpoint: row[7] || '',
+      imageKitPrivateKey: row[8] || ''
     }));
   } catch (e) {
     console.warn("Profiles tab not found or empty, using legacy settings if available.");
@@ -161,7 +162,7 @@ export const initializeServerSpreadsheet = async (spreadsheetId: string, setting
   const headerUpdates = [
     { range: `${settingsTabName}!A1:B1`, values: [['Key', 'Value']] },
     { range: `${logsTabName}!A1:D1`, values: [['Timestamp', 'Level', 'Message', 'Details']] },
-    { range: `${profilesTabName}!A1:F1`, values: [['Profile ID', 'Name', 'Instagram Account ID', 'Access Token', 'Tab Name', 'Logs Tab Name']] }
+    { range: `${profilesTabName}!A1:I1`, values: [['Profile ID', 'Name', 'Instagram Account ID', 'Access Token', 'Tab Name', 'Logs Tab Name', 'ImageKit Public Key', 'ImageKit URL Endpoint', 'ImageKit Private Key']] }
   ];
 
   if (settings.profiles && Array.isArray(settings.profiles)) {
@@ -280,9 +281,9 @@ export const saveServerRemoteSettings = async (spreadsheetId: string, settings: 
       // Add headers for new Profiles tab
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `Profiles!A1:F1`,
+        range: `Profiles!A1:I1`,
         valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [['Profile ID', 'Name', 'Instagram Account ID', 'Access Token', 'Tab Name', 'Logs Tab Name']] }
+        requestBody: { values: [['Profile ID', 'Name', 'Instagram Account ID', 'Access Token', 'Tab Name', 'Logs Tab Name', 'ImageKit Public Key', 'ImageKit URL Endpoint', 'ImageKit Private Key']] }
       });
     }
 
@@ -292,18 +293,21 @@ export const saveServerRemoteSettings = async (spreadsheetId: string, settings: 
       p.accountId,
       p.accessToken,
       p.sheetTabName,
-      p.logsTabName || `Logs - ${p.name}`
+      p.logsTabName || `Logs - ${p.name}`,
+      p.imageKitPublicKey || '',
+      p.imageKitUrlEndpoint || '',
+      p.imageKitPrivateKey || ''
     ]);
 
     // Clear existing profiles first (optional, but safer to overwrite a range)
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
-      range: `Profiles!A2:F20`,
+      range: `Profiles!A2:I20`,
     });
 
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `Profiles!A2:F${profileValues.length + 1}`,
+      range: `Profiles!A2:I${profileValues.length + 1}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: profileValues

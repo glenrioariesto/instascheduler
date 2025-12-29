@@ -45,7 +45,8 @@ export const fetchRemoteSettings = async (settings: AppSettings): Promise<any | 
           sheetTabName: row[4] || 'Schedules',
           logsTabName: row[5] || `Logs - ${row[1]}`,
           imageKitPublicKey: row[6] || '',
-          imageKitUrlEndpoint: row[7] || ''
+          imageKitUrlEndpoint: row[7] || '',
+          imageKitPrivateKey: row[8] || ''
         }));
       }
     } catch (e) {

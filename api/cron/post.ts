@@ -42,7 +42,7 @@ const fetchServerSettings = async (spreadsheetId: string, settingsTabName: strin
 
   let profiles: any[] = [];
   try {
-    const profilesResponse = await sheets.spreadsheets.values.get({ spreadsheetId, range: `Profiles!A2:H20` });
+    const profilesResponse = await sheets.spreadsheets.values.get({ spreadsheetId, range: `Profiles!A2:I20` });
     const profileRows = profilesResponse.data.values || [];
     profiles = profileRows.map((row, index) => ({
       id: row[0] || `profile_${index}`,
@@ -52,7 +52,8 @@ const fetchServerSettings = async (spreadsheetId: string, settingsTabName: strin
       sheetTabName: row[4] || 'Schedules',
       logsTabName: row[5] || `Logs - ${row[1] || 'Default'}`,
       imageKitPublicKey: row[6] || '',
-      imageKitUrlEndpoint: row[7] || ''
+      imageKitUrlEndpoint: row[7] || '',
+      imageKitPrivateKey: row[8] || ''
     }));
   } catch (e) {
     console.warn("Profiles tab not found, using legacy settings if available.");

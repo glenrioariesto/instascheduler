@@ -39,7 +39,8 @@ export const Settings: React.FC = () => {
     sheetTabName: 'Schedules',
     logsTabName: 'Logs',
     imageKitPublicKey: '',
-    imageKitUrlEndpoint: ''
+    imageKitUrlEndpoint: '',
+    imageKitPrivateKey: ''
   });
 
   useEffect(() => {
@@ -91,7 +92,7 @@ export const Settings: React.FC = () => {
     }
 
     // Reset form
-    setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules', logsTabName: 'Logs', imageKitPublicKey: '', imageKitUrlEndpoint: '' });
+    setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules', logsTabName: 'Logs', imageKitPublicKey: '', imageKitUrlEndpoint: '', imageKitPrivateKey: '' });
     setEditingProfileId(null);
   };
 
@@ -104,7 +105,8 @@ export const Settings: React.FC = () => {
       sheetTabName: profile.sheetTabName,
       logsTabName: profile.logsTabName || '',
       imageKitPublicKey: profile.imageKitPublicKey || '',
-      imageKitUrlEndpoint: profile.imageKitUrlEndpoint || ''
+      imageKitUrlEndpoint: profile.imageKitUrlEndpoint || '',
+      imageKitPrivateKey: profile.imageKitPrivateKey || ''
     });
   };
 
@@ -297,6 +299,16 @@ export const Settings: React.FC = () => {
                       placeholder="https://ik.imagekit.io/..."
                     />
                   </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">ImageKit Private Key</label>
+                    <input
+                      type="password"
+                      value={profileForm.imageKitPrivateKey || ''}
+                      onChange={(e) => setProfileForm({ ...profileForm, imageKitPrivateKey: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="private_..."
+                    />
+                  </div>
                 </div>
 
                 <div className="flex gap-2 pt-2">
@@ -312,7 +324,7 @@ export const Settings: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setEditingProfileId(null);
-                        setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules', logsTabName: 'Logs', imageKitPublicKey: '', imageKitUrlEndpoint: '' });
+                        setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules', logsTabName: 'Logs', imageKitPublicKey: '', imageKitUrlEndpoint: '', imageKitPrivateKey: '' });
                       }}
                       className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-300 transition-colors"
                     >

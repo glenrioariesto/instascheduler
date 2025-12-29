@@ -79,7 +79,7 @@ export const PostForm: React.FC = () => {
       const publicLink = await uploadFileToImageKit(
         fileToUpload,
         activeProfile.imageKitPublicKey,
-        '', // Private key not needed for client-side upload
+        activeProfile.imageKitPrivateKey || '',
         activeProfile.imageKitUrlEndpoint
       );
 
