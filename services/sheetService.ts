@@ -30,23 +30,10 @@ export const fetchRemoteSettings = async (settings: AppSettings): Promise<any | 
   const { spreadsheetId } = settings;
   if (!spreadsheetId) return null;
 
-  const tabName = settings.settingsTabName || 'Settings';
   try {
-    // 1. Fetch Global Settings
-    const data = await callSheetsProxy(spreadsheetId, 'fetch', { tabName });
+    // Fetch Profiles (now includes ImageKit settings per profile)
     const remoteSettings: any = { profiles: [] };
 
-    if (data.values) {
-      data.values.forEach((row: string[]) => {
-        const key = row[0]?.trim();
-        const value = row[1]?.trim();
-        if (key === 'IMAGEKIT_PUBLIC_KEY') remoteSettings.imageKitPublicKey = value;
-        if (key === 'IMAGEKIT_PRIVATE_KEY') remoteSettings.imageKitPrivateKey = value;
-        if (key === 'IMAGEKIT_URL_ENDPOINT') remoteSettings.imageKitUrlEndpoint = value;
-      });
-    }
-
-    // 2. Fetch Profiles
     try {
       const profilesData = await callSheetsProxy(spreadsheetId, 'fetch', { tabName: 'Profiles' });
       if (profilesData.values) {
@@ -55,7 +42,10 @@ export const fetchRemoteSettings = async (settings: AppSettings): Promise<any | 
           name: row[1],
           accountId: row[2],
           accessToken: row[3],
-          sheetTabName: row[4]
+          sheetTabName: row[4] || 'Schedules',
+          logsTabName: row[5] || `Logs - ${row[1]}`,
+          imageKitPublicKey: row[6] || '',
+          imageKitUrlEndpoint: row[7] || ''
         }));
       }
     } catch (e) {

@@ -8,25 +8,27 @@ export const uploadFileToImageKit = async (
   privateKey: string,
   urlEndpoint: string
 ): Promise<string> => {
-  if (!publicKey || !privateKey || !urlEndpoint) {
-    throw new Error("ImageKit configuration is missing. Please check your settings.");
+  if (!publicKey || !urlEndpoint) {
+    throw new Error("ImageKit configuration (Public Key or URL Endpoint) is missing.");
   }
 
   const formData = new FormData();
   formData.append('file', file);
   formData.append('fileName', file.name);
   formData.append('useUniqueFileName', 'true');
+  formData.append('publicKey', publicKey);
 
-  // For client-side apps, usually you'd use a signature from a server.
-  // However, since this is a private tool and the private key is provided,
-  // we use Basic Auth (private_key as username, empty password).
-  const authHeader = 'Basic ' + btoa(privateKey + ':');
+  const headers: Record<string, string> = {};
+
+  // If privateKey is provided, use Basic Auth (legacy/private tool approach)
+  // If not, it assumes Unsigned Upload is enabled in ImageKit dashboard
+  if (privateKey) {
+    headers['Authorization'] = 'Basic ' + btoa(privateKey + ':');
+  }
 
   const response = await fetch('https://upload.imagekit.io/api/v1/files/upload', {
     method: 'POST',
-    headers: {
-      'Authorization': authHeader,
-    },
+    headers,
     body: formData,
   });
 

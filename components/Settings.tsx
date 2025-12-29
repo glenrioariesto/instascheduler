@@ -417,32 +417,6 @@ export const Settings: React.FC = () => {
 
               <div className="border-t border-slate-100"></div>
 
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <ImageIcon size={16} /> ImageKit (Global)
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Public Key</label>
-                    <input
-                      type="text"
-                      value={formData.imageKitPublicKey || ''}
-                      onChange={(e) => setFormData({ ...formData, imageKitPublicKey: e.target.value })}
-                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">URL Endpoint</label>
-                    <input
-                      type="text"
-                      value={formData.imageKitUrlEndpoint || ''}
-                      onChange={(e) => setFormData({ ...formData, imageKitUrlEndpoint: e.target.value })}
-                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
               <div className="pt-4">
                 <button
                   type="submit"

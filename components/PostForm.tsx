@@ -49,8 +49,10 @@ export const PostForm: React.FC = () => {
   };
 
   const handleFileUpload = async (id: string, file: File) => {
-    if (!settings.imageKitPublicKey || !settings.imageKitPrivateKey || !settings.imageKitUrlEndpoint) {
-      showAlert("Configuration Missing", "Please configure ImageKit settings in the Settings tab first.", "error");
+    const activeProfile = settings.profiles?.find(p => p.id === settings.activeProfileId);
+
+    if (!activeProfile?.imageKitPublicKey || !activeProfile?.imageKitUrlEndpoint) {
+      showAlert("Configuration Missing", "Please configure ImageKit settings for this profile in the Settings tab first.", "error");
       return;
     }
 
@@ -76,9 +78,9 @@ export const PostForm: React.FC = () => {
       setStatusMessage(`Uploading ${file.name} to ImageKit...`);
       const publicLink = await uploadFileToImageKit(
         fileToUpload,
-        settings.imageKitPublicKey,
-        settings.imageKitPrivateKey,
-        settings.imageKitUrlEndpoint
+        activeProfile.imageKitPublicKey,
+        '', // Private key not needed for client-side upload
+        activeProfile.imageKitUrlEndpoint
       );
 
       // Determine type based on file

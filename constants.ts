@@ -4,9 +4,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   spreadsheetId: '',
   profiles: [],
   activeProfileId: '',
-  imageKitPublicKey: '',
-  imageKitPrivateKey: '',
-  imageKitUrlEndpoint: '',
 };
 
 export const INITIAL_POST: PostData = {

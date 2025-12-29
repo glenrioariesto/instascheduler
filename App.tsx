@@ -24,9 +24,8 @@ const App: React.FC = () => {
           if (activeProfile?.accountId === remoteProfile?.accountId &&
             activeProfile?.accessToken === remoteProfile?.accessToken &&
             activeProfile?.sheetTabName === remoteProfile?.sheetTabName &&
-            settings.imageKitPublicKey === remoteConfig.imageKitPublicKey &&
-            settings.imageKitPrivateKey === remoteConfig.imageKitPrivateKey &&
-            settings.imageKitUrlEndpoint === remoteConfig.imageKitUrlEndpoint) {
+            activeProfile?.imageKitPublicKey === remoteProfile?.imageKitPublicKey &&
+            activeProfile?.imageKitUrlEndpoint === remoteProfile?.imageKitUrlEndpoint) {
             return;
           }
 

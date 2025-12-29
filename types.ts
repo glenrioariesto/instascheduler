@@ -41,23 +41,12 @@ export interface AppSettings {
   settingsTabName?: string; // For the Configuration data (defaults to 'Settings')
   logsTabName?: string; // For Activity Logs (defaults to 'Logs')
 
-  // ImageKit Settings (Global)
-  imageKitPublicKey?: string;
-  imageKitPrivateKey?: string;
-  imageKitUrlEndpoint?: string;
-
   // Remote settings (fetched from Sheet)
   isRemoteConfigured?: boolean;
 }
 
 export interface RemoteSettings {
-  accountId: string;
-  accessToken: string;
-  sheetTabName?: string;
-  logsTabName?: string;
-  imageKitPublicKey?: string;
-  imageKitPrivateKey?: string;
-  imageKitUrlEndpoint?: string;
+  profiles: any[];
 }
 
 export interface LogEntry {

@@ -66,7 +66,7 @@ export const fetchServerSettings = async (spreadsheetId: string, settingsTabName
   try {
     const profilesResponse = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `Profiles!A2:F20`, // Support up to 19 profiles, now with Logs Tab Name
+      range: `Profiles!A2:H20`, // Support up to 19 profiles with ImageKit per profile
     });
     const profileRows = profilesResponse.data.values || [];
     profiles = profileRows.map((row, index) => ({
@@ -75,7 +75,9 @@ export const fetchServerSettings = async (spreadsheetId: string, settingsTabName
       accountId: row[2] || '',
       accessToken: row[3] || '',
       sheetTabName: row[4] || 'Schedules',
-      logsTabName: row[5] || `Logs - ${row[1] || 'Default'}`
+      logsTabName: row[5] || `Logs - ${row[1] || 'Default'}`,
+      imageKitPublicKey: row[6] || '',
+      imageKitUrlEndpoint: row[7] || ''
     }));
   } catch (e) {
     console.warn("Profiles tab not found or empty, using legacy settings if available.");
@@ -92,12 +94,7 @@ export const fetchServerSettings = async (spreadsheetId: string, settingsTabName
     }
   }
 
-  return {
-    profiles,
-    imageKitPublicKey: globalSettings['IMAGEKIT_PUBLIC_KEY'],
-    imageKitPrivateKey: globalSettings['IMAGEKIT_PRIVATE_KEY'],
-    imageKitUrlEndpoint: globalSettings['IMAGEKIT_URL_ENDPOINT']
-  };
+  return { profiles };
 };
 
 export const initializeServerSpreadsheet = async (spreadsheetId: string, settings: any) => {
@@ -255,16 +252,13 @@ export const saveServerRemoteSettings = async (spreadsheetId: string, settings: 
   const sheets = await getServerSheetsClient();
   const tabName = settings.settingsTabName || 'Settings';
 
-  // 1. Save Global Settings
+  // 1. Save Global Settings (only LAST_SYNC, no ImageKit - now stored per profile)
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${tabName}!A2:B5`,
+    range: `${tabName}!A2:B2`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [
-        ['IMAGEKIT_PUBLIC_KEY', settings.imageKitPublicKey || ''],
-        ['IMAGEKIT_PRIVATE_KEY', settings.imageKitPrivateKey || ''],
-        ['IMAGEKIT_URL_ENDPOINT', settings.imageKitUrlEndpoint || ''],
         ['LAST_SYNC', new Date().toISOString()]
       ]
     }
