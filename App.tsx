@@ -14,7 +14,7 @@ const App: React.FC = () => {
   // Fetch remote settings when local settings change (and are valid)
   useEffect(() => {
     const loadRemoteSettings = async () => {
-      if (settings.spreadsheetId && settings.googleAccessToken) {
+      if (settings.spreadsheetId) {
         const remoteConfig = await fetchRemoteSettings(settings);
         if (remoteConfig) {
           // Check if anything actually changed to avoid unnecessary updates/logs
@@ -37,7 +37,7 @@ const App: React.FC = () => {
     };
 
     loadRemoteSettings();
-  }, [settings.spreadsheetId, settings.googleAccessToken]);
+  }, [settings.spreadsheetId]);
 
   return (
     <HashRouter>

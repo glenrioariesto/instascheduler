@@ -1,10 +1,9 @@
 import { AppSettings, PostData } from "./types";
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  accountId: '',
-  accessToken: '',
   spreadsheetId: '',
-  googleClientId: '',
+  profiles: [],
+  activeProfileId: '',
   imageKitPublicKey: '',
   imageKitPrivateKey: '',
   imageKitUrlEndpoint: '',
