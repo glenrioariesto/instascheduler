@@ -48,11 +48,16 @@ export const PostForm: React.FC = () => {
     }));
   };
 
-  const handleFileUpload = async (id: string, file: File) => {
-    const activeProfile = settings.profiles?.find(p => p.id === settings.activeProfileId);
+  const activeProfile = settings.profiles?.find(p => p.id === settings.activeProfileId);
 
-    if (!activeProfile?.imageKitPublicKey || !activeProfile?.imageKitUrlEndpoint) {
-      showAlert("Configuration Missing", "Please configure ImageKit settings for this profile in the Settings tab first.", "error");
+  const handleFileUpload = async (id: string, file: File) => {
+    if (!activeProfile) {
+      showAlert("No Active Profile", "Please select or create an Instagram profile in Settings first.", "error");
+      return;
+    }
+
+    if (!activeProfile.imageKitPublicKey || !activeProfile.imageKitUrlEndpoint || !activeProfile.imageKitPrivateKey) {
+      showAlert("Configuration Missing", "ImageKit settings (Public Key, URL Endpoint, or Private Key) are missing for this profile. Please configure them in the Settings tab first.", "error");
       return;
     }
 
@@ -99,7 +104,7 @@ export const PostForm: React.FC = () => {
     }
   };
 
-  const activeProfile = settings.profiles?.find(p => p.id === settings.activeProfileId);
+
 
   const handleSave = async () => {
     if (!activeProfile) {
@@ -386,6 +391,14 @@ export const PostForm: React.FC = () => {
             <div className="bg-white p-3 rounded border border-indigo-100">
               <div className="text-xs text-slate-500 uppercase font-bold mb-1">Media Count</div>
               <div className="text-slate-800">{mediaItems.length} Items</div>
+            </div>
+            <div className={`p-3 rounded border ${(!activeProfile?.imageKitPublicKey || !activeProfile?.imageKitUrlEndpoint || !activeProfile?.imageKitPrivateKey) ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}`}>
+              <div className="text-xs text-slate-500 uppercase font-bold mb-1">ImageKit Status</div>
+              <div className={`text-[10px] font-bold ${(!activeProfile?.imageKitPublicKey || !activeProfile?.imageKitUrlEndpoint || !activeProfile?.imageKitPrivateKey) ? 'text-red-600' : 'text-green-600'}`}>
+                {(!activeProfile?.imageKitPublicKey || !activeProfile?.imageKitUrlEndpoint || !activeProfile?.imageKitPrivateKey)
+                  ? '⚠️ Configuration Missing'
+                  : '✅ Ready to Upload'}
+              </div>
             </div>
           </div>
         </div>

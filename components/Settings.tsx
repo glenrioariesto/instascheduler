@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Save, Eye, EyeOff, Key, UserCircle, Database, FileSpreadsheet, Lock, CheckCircle2, AlertCircle, PlayCircle, Search, Image as ImageIcon } from 'lucide-react';
 import { AppSettings, InstagramProfile } from '../types';
-import { initializeSpreadsheet } from '../services/sheetService';
+import { initializeSpreadsheet, fetchRemoteSettings } from '../services/sheetService';
 import { getInstagramBusinessId } from '../services/instagramService';
 import { useAppStore } from '../store/useAppStore';
 
@@ -21,7 +21,8 @@ export const Settings: React.FC = () => {
     showAlert,
     addProfile,
     updateProfile,
-    deleteProfile
+    deleteProfile,
+    updateSettings
   } = useAppStore();
 
   const [formData, setFormData] = useState<AppSettings>(settings);
@@ -90,6 +91,17 @@ export const Settings: React.FC = () => {
       addProfile(profileForm);
       addLog({ level: 'info', message: `New profile added: ${profileForm.name}` });
     }
+
+    // Auto-sync to Google Sheet
+    setMessage('Syncing to Google Sheet...');
+    syncSettingsToSheet().then(success => {
+      if (success) {
+        setMessage('Profile saved and synced to Google Sheet!');
+      } else {
+        setMessage('Profile saved locally, but sync to Sheet failed.');
+      }
+      setTimeout(() => setMessage(''), 3000);
+    });
 
     // Reset form
     setProfileForm({ name: '', accountId: '', accessToken: '', sheetTabName: 'Schedules', logsTabName: 'Logs', imageKitPublicKey: '', imageKitUrlEndpoint: '', imageKitPrivateKey: '' });
@@ -177,6 +189,23 @@ export const Settings: React.FC = () => {
       showAlert("Setup Failed", `Failed to setup sheet: ${error.message}`, "error");
       setMessage('');
     }
+  };
+
+  const handleReloadData = async () => {
+    setMessage('Fetching from Sheet...');
+    try {
+      const remote = await fetchRemoteSettings(settings);
+      if (remote) {
+        updateSettings({ ...remote, isRemoteConfigured: true });
+        setMessage('Settings reloaded from Sheet!');
+      } else {
+        setMessage('Failed to fetch from Sheet.');
+      }
+    } catch (error: any) {
+      console.error(error);
+      setMessage(`Error: ${error.message}`);
+    }
+    setTimeout(() => setMessage(''), 3000);
   };
 
   return (
@@ -416,13 +445,22 @@ export const Settings: React.FC = () => {
                       2. Click Initialize to setup tabs.<br />
                       (Deletes 'Sheet1', creates Profile tabs)
                     </p>
-                    <button
-                      type="button"
-                      onClick={handleSetupSheet}
-                      className="w-full py-2 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <PlayCircle size={14} /> Initialize Database & Tabs
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSetupSheet}
+                        className="w-full py-2 bg-blue-600 text-white text-[10px] font-bold rounded hover:bg-blue-700 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <PlayCircle size={14} /> Initialize
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleReloadData}
+                        className="w-full py-2 bg-slate-600 text-white text-[10px] font-bold rounded hover:bg-slate-700 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Database size={14} /> Reload Data
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
