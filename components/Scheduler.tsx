@@ -50,6 +50,7 @@ export const Scheduler: React.FC = () => {
     }
 
     setLoading(true);
+    setPosts([]); // Clear stale posts immediately
     try {
       const rawPosts = await fetchSheetData(settings, activeProfile.sheetTabName);
       const now = new Date();
@@ -240,6 +241,7 @@ export const Scheduler: React.FC = () => {
       {viewMode === 'table' ? (
         <TableView
           posts={posts}
+          loading={loading}
           processingId={processingId}
           onPostNow={handlePostNow}
           onDelete={handleDeletePost}
@@ -247,6 +249,7 @@ export const Scheduler: React.FC = () => {
       ) : (
         <CalendarView
           posts={posts}
+          loading={loading}
           processingId={processingId}
           onPostNow={handlePostNow}
           onDelete={handleDeletePost}

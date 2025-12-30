@@ -5,12 +5,13 @@ import { StatusBadge } from './StatusBadge';
 
 interface CalendarViewProps {
   posts: ScheduledPost[];
+  loading: boolean;
   processingId: string | null;
   onPostNow: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({ posts, processingId, onPostNow, onDelete }) => {
+export const CalendarView: React.FC<CalendarViewProps> = ({ posts, loading, processingId, onPostNow, onDelete }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -102,8 +103,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ posts, processingId,
                             {post.status !== 'published' && (
                               <button
                                 onClick={() => onPostNow(post.id)}
-                                disabled={!!processingId}
-                                className="p-0.5 bg-white rounded shadow-sm text-indigo-600 hover:text-indigo-800"
+                                disabled={!!processingId || loading}
+                                className="p-0.5 bg-white rounded shadow-sm text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
                                 title="Post Now"
                               >
                                 <Send size={10} />
@@ -111,8 +112,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ posts, processingId,
                             )}
                             <button
                               onClick={() => onDelete(post.id)}
-                              disabled={!!processingId}
-                              className="p-0.5 bg-white rounded shadow-sm text-slate-400 hover:text-red-600"
+                              disabled={!!processingId || loading}
+                              className="p-0.5 bg-white rounded shadow-sm text-slate-400 hover:text-red-600 disabled:opacity-50"
                               title="Delete"
                             >
                               <Trash2 size={10} />

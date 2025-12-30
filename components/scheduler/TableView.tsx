@@ -5,12 +5,13 @@ import { StatusBadge } from './StatusBadge';
 
 interface TableViewProps {
   posts: ScheduledPost[];
+  loading: boolean;
   processingId: string | null;
   onPostNow: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export const TableView: React.FC<TableViewProps> = ({ posts, processingId, onPostNow, onDelete }) => {
+export const TableView: React.FC<TableViewProps> = ({ posts, loading, processingId, onPostNow, onDelete }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       <div className="overflow-x-auto">
@@ -26,7 +27,16 @@ export const TableView: React.FC<TableViewProps> = ({ posts, processingId, onPos
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {posts.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin" />
+                    Fetching schedule...
+                  </div>
+                </td>
+              </tr>
+            ) : posts.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                   No scheduled posts found in the connected sheet.
@@ -58,7 +68,7 @@ export const TableView: React.FC<TableViewProps> = ({ posts, processingId, onPos
                       {post.status !== 'published' && (
                         <button
                           onClick={() => onPostNow(post.id)}
-                          disabled={!!processingId}
+                          disabled={!!processingId || loading}
                           className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors text-xs font-medium disabled:opacity-50"
                           title="Post immediately"
                         >
@@ -68,7 +78,7 @@ export const TableView: React.FC<TableViewProps> = ({ posts, processingId, onPos
                       )}
                       <button
                         onClick={() => onDelete(post.id)}
-                        disabled={!!processingId}
+                        disabled={!!processingId || loading}
                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                         title="Delete post"
                       >
