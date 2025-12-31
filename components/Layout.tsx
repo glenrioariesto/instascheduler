@@ -37,12 +37,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           {/* Desktop: Logo Icon + Text Image */}
           <div className="hidden md:flex items-center gap-3">
             <img
-              src="/assets/Logo-InstaScheduler.png"
+              src="/assets/Logo-InstaScheduler.webp"
               alt="Logo"
               className="w-10 h-10 object-contain"
             />
             <img
-              src="/assets/InstaScheduler-Text.png"
+              src="/assets/InstaScheduler-Text.webp"
               alt="InstaScheduler"
               className="h-10 w-48 object-cover"
             />
