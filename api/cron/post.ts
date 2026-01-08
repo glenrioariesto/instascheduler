@@ -18,7 +18,7 @@ const fetchServerSheetData = async (spreadsheetId: string, tabName: string = 'Sc
   const sheets = await getServerSheetsClient();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${tabName}!A2:I100`,
+    range: `${tabName}!A2:J100`,
   });
   return response.data.values || [];
 };
@@ -27,7 +27,7 @@ const updateServerPostStatus = async (spreadsheetId: string, tabName: string, ro
   const sheets = await getServerSheetsClient();
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${tabName}!H${rowIndex}`,
+    range: `${tabName}!I${rowIndex}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[status]] },
   });
@@ -61,7 +61,7 @@ const fetchServerSettings = async (spreadsheetId: string, settingsTabName: strin
       profiles = [{ id: 'legacy', name: 'Default Account', accountId: globalSettings['INSTAGRAM_ACCOUNT_ID'], accessToken: globalSettings['INSTAGRAM_ACCESS_TOKEN'], sheetTabName: globalSettings['SHEET_TAB_NAME'] || 'Schedules', logsTabName: 'Logs', imageKitPublicKey: '', imageKitUrlEndpoint: '' }];
     }
   }
-  return { profiles };
+  return { profiles, globalSettings };
 };
 // ============== END INLINED SHEET SERVICE ==============
 
@@ -173,7 +173,13 @@ export default async function handler(req: any, res: any) {
 
   try {
     console.log("Fetching remote settings from Sheet...");
-    const { profiles } = await fetchServerSettings(spreadsheetId);
+    const { profiles, globalSettings } = await fetchServerSettings(spreadsheetId);
+
+    const schedulerStatus = globalSettings['SCHEDULER_STATUS'] || 'ACTIVE';
+    if (schedulerStatus === 'PAUSED') {
+      console.log("Scheduler is PAUSED. Skipping execution.");
+      return res.status(200).json({ status: 'paused', message: "Scheduler is currently paused in Settings." });
+    }
 
     if (!profiles || profiles.length === 0) {
       return res.status(200).json({ message: "No profiles found in Profiles tab" });
@@ -197,14 +203,27 @@ export default async function handler(req: any, res: any) {
 
         const posts: ScheduledPost[] = rows.map((row: any[], index: number) => {
           const dateStr = row[1];
-          const status = row[7]?.toLowerCase() || 'pending';
-          const urlsStr = row[8] || "";
+          const timeStr = row[2];
+          const status = row[8]?.toLowerCase() || 'pending';
+          const urlsStr = row[9] || "";
           const urls = urlsStr ? urlsStr.split(',').map((s: string) => s.trim()) : [];
           if (!dateStr) return null;
+
+          let scheduledTime = new Date().toISOString();
+          try {
+            let dateTimeStr = dateStr;
+            if (timeStr) {
+              dateTimeStr = `${dateStr}T${timeStr}`;
+            }
+            scheduledTime = new Date(dateTimeStr).toISOString();
+          } catch (e) {
+            console.error("Invalid date format:", dateStr, timeStr);
+          }
+
           return {
             id: `cron_${profile.id}_${index}`,
-            scheduledTime: new Date(dateStr).toISOString(),
-            caption: row[4] || "",
+            scheduledTime: scheduledTime,
+            caption: row[5] || "",
             mediaItems: urls.map((url: string, i: number) => ({ id: `cron_${profile.id}_${index}_${i}`, url, type: url.toLowerCase().match(/\.(mp4|mov|avi|wmv|m4v)$/) ? 'VIDEO' : 'IMAGE' })),
             sheetRowIndex: index + 2,
             status: status

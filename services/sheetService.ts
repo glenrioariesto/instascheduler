@@ -65,9 +65,14 @@ export const fetchRemoteSettings = async (settings: AppSettings): Promise<any | 
 const parseSheetRows = (rows: any[]): ScheduledPost[] => {
   return rows.map((row, index) => {
     const dateStr = row[1];
-    const caption = row[4];
-    const statusStr = row[7]?.toLowerCase() || 'pending';
-    const urlsStr = row[8];
+    const timeStr = row[2]; // New Time Column
+    const theme = row[3];
+    const title = row[4];
+    const caption = row[5];
+    const script = row[6];
+    const cta = row[7];
+    const statusStr = row[8]?.toLowerCase() || 'pending';
+    const urlsStr = row[9];
 
     if (!dateStr) return null;
 
@@ -85,9 +90,14 @@ const parseSheetRows = (rows: any[]): ScheduledPost[] => {
 
     let scheduledTime = new Date().toISOString();
     try {
-      scheduledTime = new Date(dateStr).toISOString();
+      // Combine date and time if available
+      let dateTimeStr = dateStr;
+      if (timeStr) {
+        dateTimeStr = `${dateStr}T${timeStr}`;
+      }
+      scheduledTime = new Date(dateTimeStr).toISOString();
     } catch (e) {
-      console.error("Invalid date format:", dateStr);
+      console.error("Invalid date format:", dateStr, timeStr);
     }
 
     let status: ScheduledPost['status'] = 'pending';
@@ -97,7 +107,11 @@ const parseSheetRows = (rows: any[]): ScheduledPost[] => {
     return {
       id,
       scheduledTime,
+      theme: theme || "",
+      title: title || "",
       caption: caption || "",
+      script: script || "",
+      cta: cta || "",
       mediaItems,
       sheetRowIndex: index + 2,
       status
@@ -154,6 +168,68 @@ export const saveRemoteSettings = async (settings: AppSettings): Promise<boolean
   }
 };
 
+export const getSchedulerStatus = async (settings: AppSettings): Promise<'ACTIVE' | 'PAUSED'> => {
+  const { spreadsheetId } = settings;
+  if (!spreadsheetId) return 'ACTIVE';
+
+  try {
+    const data = await callSheetsProxy(spreadsheetId, 'fetch', { tabName: 'Settings' });
+    if (!data.values) return 'ACTIVE';
+
+    const statusRow = data.values.find((row: string[]) => row[0] === 'SCHEDULER_STATUS');
+    return statusRow ? (statusRow[1] as 'ACTIVE' | 'PAUSED') : 'ACTIVE';
+  } catch (error) {
+    console.error("Error fetching scheduler status:", error);
+    return 'ACTIVE';
+  }
+};
+
+export const setSchedulerStatus = async (settings: AppSettings, status: 'ACTIVE' | 'PAUSED'): Promise<void> => {
+  const { spreadsheetId } = settings;
+  if (!spreadsheetId) return;
+
+  // We need a way to update a specific key in Settings. 
+  // For simplicity, we'll use a new action 'updateSetting' in proxy or just append/update if we can.
+  // Since proxy 'saveSettings' overwrites everything or 'updateStatus' is for posts, let's add a generic 'updateSetting' to proxy or reuse 'saveSettings' but that's heavy.
+  // Let's assume we can use 'append' if not exists, but updating is harder without row index.
+  // Actually, 'saveSettings' in proxy updates A2:B2 with LAST_SYNC.
+  // Let's modify proxy to support updating a specific setting key.
+
+  // For now, let's use a specialized call to the proxy to handle this "Upsert" logic for settings.
+  // Or simpler: fetch all settings, update one, save all.
+
+  try {
+    const remoteSettings = await fetchRemoteSettings(settings);
+    // This fetchRemoteSettings in this file returns { profiles }. It doesn't return the raw settings map.
+    // We might need to extend fetchRemoteSettings too or just make a new proxy action.
+
+    // Let's use a new proxy action 'setGlobalSetting' which is cleaner.
+    await callSheetsProxy(spreadsheetId, 'setGlobalSetting', { key: 'SCHEDULER_STATUS', value: status });
+  } catch (error) {
+    console.error("Failed to set scheduler status:", error);
+    throw error;
+  }
+};
+
+export const deleteProfileSheets = async (settings: AppSettings, sheetTabName: string, logsTabName?: string): Promise<void> => {
+  const { spreadsheetId } = settings;
+  if (!spreadsheetId) return;
+
+  try {
+    // Delete the Schedules tab
+    if (sheetTabName) {
+      await callSheetsProxy(spreadsheetId, 'deleteSheet', { tabName: sheetTabName });
+    }
+    // Delete the Logs tab
+    if (logsTabName) {
+      await callSheetsProxy(spreadsheetId, 'deleteSheet', { tabName: logsTabName });
+    }
+  } catch (error) {
+    console.error("Failed to delete profile sheets:", error);
+    throw error;
+  }
+};
+
 export const addToSchedule = async (settings: AppSettings, postData: any, tabName?: string): Promise<void> => {
   const { spreadsheetId } = settings;
   if (!spreadsheetId) throw new Error("Spreadsheet ID not set");
@@ -168,6 +244,7 @@ export const addToSchedule = async (settings: AppSettings, postData: any, tabNam
     values: [
       dayName,
       postData.date,
+      postData.time || '', // New Time Column
       postData.theme || '',
       postData.title || '',
       postData.caption || '',

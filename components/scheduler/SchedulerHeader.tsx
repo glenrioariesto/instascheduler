@@ -1,9 +1,10 @@
 import React from 'react';
-import { Calendar, RefreshCw, Play, Pause, LayoutGrid, List } from 'lucide-react';
+import { Calendar, RefreshCw, Play, LayoutGrid, List, Zap } from 'lucide-react';
 
 interface SchedulerHeaderProps {
-  isRunning: boolean;
-  onToggleRunning: () => void;
+  onRunCron: () => void;
+  schedulerStatus: 'ACTIVE' | 'PAUSED';
+  onToggleStatus: () => void;
   viewMode: 'table' | 'calendar';
   onViewModeChange: (mode: 'table' | 'calendar') => void;
   lastCheck: number | null;
@@ -12,8 +13,9 @@ interface SchedulerHeaderProps {
 }
 
 export const SchedulerHeader: React.FC<SchedulerHeaderProps> = ({
-  isRunning,
-  onToggleRunning,
+  onRunCron,
+  schedulerStatus,
+  onToggleStatus,
   viewMode,
   onViewModeChange,
   lastCheck,
@@ -53,7 +55,7 @@ export const SchedulerHeader: React.FC<SchedulerHeaderProps> = ({
 
         <button
           onClick={onRefresh}
-          disabled={loading || isRunning}
+          disabled={loading}
           className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
         >
           <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
@@ -61,17 +63,23 @@ export const SchedulerHeader: React.FC<SchedulerHeaderProps> = ({
         </button>
 
         <button
-          onClick={onToggleRunning}
-          className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium text-white transition-all shadow-sm ${isRunning
-            ? 'bg-red-500 hover:bg-red-600'
-            : 'bg-green-600 hover:bg-green-700'
+          onClick={onToggleStatus}
+          className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${schedulerStatus === 'ACTIVE'
+            ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+            : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
             }`}
+          title={schedulerStatus === 'ACTIVE' ? "Click to Pause Automation" : "Click to Resume Automation"}
         >
-          {isRunning ? (
-            <> <Pause size={18} /> <span className="hidden sm:inline">Stop</span> </>
-          ) : (
-            <> <Play size={18} /> <span className="hidden sm:inline">Start Auto</span> </>
-          )}
+          <div className={`w-2 h-2 rounded-full ${schedulerStatus === 'ACTIVE' ? 'bg-green-500' : 'bg-amber-500'}`} />
+          <span className="font-medium text-sm">{schedulerStatus === 'ACTIVE' ? 'Auto: ON' : 'Auto: OFF'}</span>
+        </button>
+
+        <button
+          onClick={onRunCron}
+          disabled={loading}
+          className="flex items-center gap-2 px-6 py-2 rounded-lg font-medium text-white transition-all shadow-sm bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Zap size={18} /> <span className="hidden sm:inline">Test Run</span>
         </button>
       </div>
     </div>

@@ -18,7 +18,7 @@ const fetchServerSheetData = async (spreadsheetId: string, tabName: string = 'Sc
   const sheets = await getServerSheetsClient();
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${tabName}!A2:I100`,
+    range: `${tabName}!A2:J100`,
   });
   return response.data.values || [];
 };
@@ -27,7 +27,7 @@ const updateServerPostStatus = async (spreadsheetId: string, tabName: string, ro
   const sheets = await getServerSheetsClient();
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${tabName}!H${rowIndex}`,
+    range: `${tabName}!I${rowIndex}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[status]] },
   });
@@ -53,7 +53,7 @@ const appendServerRow = async (spreadsheetId: string, tabName: string, values: a
   }
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${tabName}!A:I`,
+    range: `${tabName}!A:J`,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [values] },
   });
@@ -134,7 +134,7 @@ const initializeServerSpreadsheet = async (spreadsheetId: string, settings: any)
   if (settings.profiles && Array.isArray(settings.profiles)) {
     settings.profiles.forEach((p: any) => {
       if (p.sheetTabName) {
-        headerUpdates.push({ range: `${p.sheetTabName}!A1:I1`, values: [['Hari', 'Tanggal', 'Tema Konten', 'Judul / Hook', 'Caption', 'Script Singkat', 'CTA', 'Status', 'Link Posting']] });
+        headerUpdates.push({ range: `${p.sheetTabName}!A1:J1`, values: [['Hari', 'Tanggal', 'Jam', 'Tema Konten', 'Judul / Hook', 'Caption', 'Script Singkat', 'CTA', 'Status', 'Link Posting']] });
       }
       const pLogsTab = p.logsTabName || `Logs - ${p.name}`;
       if (pLogsTab) {
@@ -179,7 +179,7 @@ const saveServerRemoteSettings = async (spreadsheetId: string, settings: any) =>
       if (p.sheetTabName && !existingTitles.includes(p.sheetTabName)) {
         if (!requests.some(r => r.addSheet?.properties?.title === p.sheetTabName)) {
           requests.push({ addSheet: { properties: { title: p.sheetTabName } } });
-          headerUpdates.push({ range: `${p.sheetTabName}!A1:I1`, values: [['Hari', 'Tanggal', 'Tema Konten', 'Judul / Hook', 'Caption', 'Script Singkat', 'CTA', 'Status', 'Link Posting']] });
+          headerUpdates.push({ range: `${p.sheetTabName}!A1:J1`, values: [['Hari', 'Tanggal', 'Jam', 'Tema Konten', 'Judul / Hook', 'Caption', 'Script Singkat', 'CTA', 'Status', 'Link Posting']] });
         }
       }
       const pLogsTab = p.logsTabName || `Logs - ${p.name}`;
@@ -193,6 +193,74 @@ const saveServerRemoteSettings = async (spreadsheetId: string, settings: any) =>
     if (requests.length > 0) await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } });
     if (headerUpdates.length > 0) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId, requestBody: { valueInputOption: 'USER_ENTERED', data: headerUpdates } });
   }
+};
+
+const setServerGlobalSetting = async (spreadsheetId: string, key: string, value: string, settingsTabName: string = 'Settings') => {
+  const sheets = await getServerSheetsClient();
+
+  // 1. Get all data from Settings tab
+  let rows: any[] = [];
+  try {
+    const response = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${settingsTabName}!A:B` });
+    rows = response.data.values || [];
+  } catch (e) {
+    // Tab might not exist, create it
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests: [{ addSheet: { properties: { title: settingsTabName } } }] }
+    });
+    rows = [['Key', 'Value']]; // Init header
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${settingsTabName}!A1:B1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [rows[0]] }
+    });
+  }
+
+  // 2. Find if key exists (use trim to handle whitespace)
+  const rowIndex = rows.findIndex(r => r[0]?.trim() === key.trim());
+
+  if (rowIndex !== -1) {
+    // Update existing
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${settingsTabName}!B${rowIndex + 1}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[value]] }
+    });
+  } else {
+    // Append new
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${settingsTabName}!A:B`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[key, value]] }
+    });
+  }
+};
+
+const deleteServerSheet = async (spreadsheetId: string, tabName: string) => {
+  const sheets = await getServerSheetsClient();
+
+  // First, get the sheet ID by name
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheet = spreadsheet.data.sheets?.find(s => s.properties?.title === tabName);
+
+  if (!sheet) {
+    console.warn(`Sheet "${tabName}" not found, skipping deletion.`);
+    return; // Sheet doesn't exist, nothing to delete
+  }
+
+  const sheetId = sheet.properties?.sheetId;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [{ deleteSheet: { sheetId } }]
+    }
+  });
+  console.log(`Deleted sheet: ${tabName}`);
 };
 // ============== END INLINED SERVICE ==============
 
@@ -231,6 +299,14 @@ export default async function handler(req: any, res: any) {
 
       case 'saveSettings':
         await saveServerRemoteSettings(spreadsheetId, payload.settings);
+        return res.status(200).json({ success: true });
+
+      case 'setGlobalSetting':
+        await setServerGlobalSetting(spreadsheetId, payload.key, payload.value);
+        return res.status(200).json({ success: true });
+
+      case 'deleteSheet':
+        await deleteServerSheet(spreadsheetId, payload.tabName);
         return res.status(200).json({ success: true });
 
       default:
