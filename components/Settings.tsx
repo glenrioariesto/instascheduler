@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Save, Eye, EyeOff, Key, UserCircle, Database, FileSpreadsheet, Lock, CheckCircle2, AlertCircle, PlayCircle, Search, Image as ImageIcon } from 'lucide-react';
 import { AppSettings, InstagramProfile } from '../types';
-import { initializeSpreadsheet, fetchRemoteSettings } from '../services/sheetService';
+import { initializeSpreadsheet, fetchRemoteSettings, deleteProfileSheets } from '../services/sheetService';
 import { getInstagramBusinessId } from '../services/instagramService';
 import { useAppStore } from '../store/useAppStore';
 
@@ -19,6 +19,7 @@ export const Settings: React.FC = () => {
     addLog,
     syncSettingsToSheet,
     showAlert,
+    showConfirm,
     addProfile,
     updateProfile,
     deleteProfile,
@@ -409,7 +410,28 @@ export const Settings: React.FC = () => {
                             <SettingsIcon size={18} />
                           </button>
                           <button
-                            onClick={() => deleteProfile(profile.id)}
+                            onClick={() => {
+                              showConfirm(
+                                "Delete Profile",
+                                `Are you sure you want to delete "${profile.name}"? This will also delete the "${profile.sheetTabName}" and "${profile.logsTabName}" tabs from Google Sheet.`,
+                                async () => {
+                                  try {
+                                    setMessage('Deleting profile and sheets...');
+                                    await deleteProfileSheets(settings, profile.sheetTabName, profile.logsTabName);
+                                    deleteProfile(profile.id);
+                                    await syncSettingsToSheet();
+                                    setMessage('Profile and sheets deleted!');
+                                    setTimeout(() => setMessage(''), 3000);
+                                  } catch (error: any) {
+                                    console.error(error);
+                                    showAlert("Delete Failed", `Error: ${error.message}`, "error");
+                                    setMessage('');
+                                  }
+                                },
+                                "Delete",
+                                "Cancel"
+                              );
+                            }}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
                             title="Delete"
                           >
