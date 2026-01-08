@@ -9,6 +9,7 @@ import { useAppStore } from '../store/useAppStore';
 export const PostForm: React.FC = () => {
   const { settings, addLog, showAlert } = useAppStore();
   const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
   const [theme, setTheme] = useState('');
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
@@ -133,6 +134,7 @@ export const PostForm: React.FC = () => {
     try {
       const postData = {
         date,
+        time,
         theme,
         title,
         caption,
@@ -150,6 +152,7 @@ export const PostForm: React.FC = () => {
       // Reset form
       setTimeout(() => {
         setDate('');
+        setTime('');
         setTheme('');
         setTitle('');
         setCaption('');
@@ -187,13 +190,22 @@ export const PostForm: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Date *</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
-                  disabled={isSaving}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
+                    disabled={isSaving}
+                  />
+                  <input
+                    type="time"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    className="w-32 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-colors"
+                    disabled={isSaving}
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Content Theme</label>
@@ -381,8 +393,8 @@ export const PostForm: React.FC = () => {
 
           <div className="space-y-3 text-sm">
             <div className="bg-white p-3 rounded border border-indigo-100">
-              <div className="text-xs text-slate-500 uppercase font-bold mb-1">Date</div>
-              <div className="text-slate-800 font-mono">{date || '-'}</div>
+              <div className="text-xs text-slate-500 uppercase font-bold mb-1">Date & Time</div>
+              <div className="text-slate-800 font-mono">{date || '-'} {time ? `at ${time}` : ''}</div>
             </div>
             <div className="bg-white p-3 rounded border border-indigo-100">
               <div className="text-xs text-slate-500 uppercase font-bold mb-1">Title</div>
